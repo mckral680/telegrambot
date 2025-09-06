@@ -1,65 +1,40 @@
 import logging
 import os
-from datetime import datetime, timedelta
-
-import pytz
 from telegram import Update, ChatPermissions, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes,
-    CallbackQueryHandler,
-)
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from pytz import timezone
 
-# --- CONFIG ---
+# Environment variable destekli
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-CHAT_ID = int(os.environ.get("CHAT_ID"))  # örn: -1001234567890
-TZ = "Europe/Istanbul"
+CHAT_ID = int(os.environ.get("CHAT_ID"))
+print("BOT_TOKEN:", BOT_TOKEN)
+print("CHAT_ID:", CHAT_ID)
 
-# --- LOG ---
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
-# --- APP ---
-app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-# --- SCHEDULER ---
-scheduler = AsyncIOScheduler(timezone=TZ)
+logging.basicConfig(level=logging.INFO)
 
 # Grup kilitle
-async def lock_group(bot):
-    try:
-        await bot.set_chat_permissions(
-            CHAT_ID,
-            ChatPermissions(can_send_messages=False)
-        )
-        await bot.send_message(CHAT_ID, "🔒 Grup kilitlendi")
-        logging.info("Group locked successfully")
-    except Exception as e:
-        logging.exception("Error while locking group: %s", e)
+async def lock_group(context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.set_chat_permissions(
+        CHAT_ID,
+        ChatPermissions(can_send_messages=False)
+    )
+    await context.bot.send_message(
+        CHAT_ID,
+        "🔒 Grup kilitlendi"
+    )
 
 # Grup aç
-async def unlock_group(bot):
-    try:
-        await bot.set_chat_permissions(
-            CHAT_ID,
-            ChatPermissions(can_send_messages=True)
-        )
-        await bot.send_message(CHAT_ID, "🔓 Grup açıldı")
-        logging.info("Group unlocked successfully")
-    except Exception as e:
-        logging.exception("Error while unlocking group: %s", e)
-
-# Job wrapper fonksiyonları
-async def scheduled_lock():
-    await lock_group(app.bot)
-
-async def scheduled_unlock():
-    await unlock_group(app.bot)
+async def unlock_group(context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.set_chat_permissions(
+        CHAT_ID,
+        ChatPermissions(can_send_messages=True)
+    )
+    await context.bot.send_message(
+        CHAT_ID,
+        "🔓 Grup açıldı"
+    )
 
 # /start komutu
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -68,48 +43,48 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🔓 Aç", callback_data="unlock")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
+
     await update.message.reply_text("Bot çalışıyor! 🔥", reply_markup=reply_markup)
 
 # /lock komutu
 async def lock_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await lock_group(context.bot)
-    await update.message.reply_text("✅ Grup kilitlendi (manuel komut).")
+    await lock_group(context)
 
 # /unlock komutu
 async def unlock_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await unlock_group(context.bot)
-    await update.message.reply_text("✅ Grup açıldı (manuel komut).")
+    await unlock_group(context)
 
 # Buton callback
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
     if query.data == "lock":
-        await lock_group(context.bot)
+        await lock_group(context)
         await query.edit_message_text("🔒 Grup kilitlendi (buton ile)")
     elif query.data == "unlock":
-        await unlock_group(context.bot)
+        await unlock_group(context)
         await query.edit_message_text("🔓 Grup açıldı (buton ile)")
 
-# --- HANDLERS EKLE ---
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("lock", lock_cmd))
-app.add_handler(CommandHandler("unlock", unlock_cmd))
-app.add_handler(CallbackQueryHandler(button_handler))
+# Main fonksiyonu
+async def main():
+    app = Application.builder().token(BOT_TOKEN).build()
 
-# --- post_init (scheduler burada başlatılacak) ---
-async def on_startup(app):
-    # Cron jobları buraya ekle
-    scheduler.add_job(scheduled_lock, CronTrigger(hour=8, minute=57))   # 23:00 kilitle
-    scheduler.add_job(scheduled_unlock, CronTrigger(hour=8, minute=58))  # 07:00 aç
+    # Komut handler ekle
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("lock", lock_cmd))
+    app.add_handler(CommandHandler("unlock", unlock_cmd))
+    app.add_handler(CallbackQueryHandler(button_handler))
 
+    # Scheduler (AsyncIOScheduler kullanıyoruz)
+    scheduler = AsyncIOScheduler(timezone=timezone("Europe/Istanbul"))
+    scheduler.add_job(lambda: app.create_task(lock_group(app)), CronTrigger(hour=9, minute=2))
+    scheduler.add_job(lambda: app.create_task(unlock_group(app)), CronTrigger(hour=9, minute=3))
     scheduler.start()
-    logging.info("Scheduler started. Jobs: %s", scheduler.get_jobs())
 
-# Botu post_init ile başlat
-app = ApplicationBuilder().token(BOT_TOKEN).post_init(on_startup).build()
+    # Botu başlat (tek instance)
+    await app.run_polling()
 
 if __name__ == "__main__":
-    logging.info("Starting bot...")
-    app.run_polling()
-
+    import asyncio
+    asyncio.run(main())
