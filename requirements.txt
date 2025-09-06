@@ -1,4 +1,4 @@
 python-telegram-bot==20.3
-apscheduler==3.11.1
+apscheduler==3.11.10
 pytz==2023.3
 tzlocal==5.1.0
