@@ -19,6 +19,10 @@ TZ = "Europe/Istanbul"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+# --- GLOBAL SCHEDULER ---
+scheduler = AsyncIOScheduler(timezone=timezone(TZ))
+scheduler.start()
+
 # --- Grup Kilitle / Aç ---
 async def lock_group(bot_or_context):
     bot = getattr(bot_or_context, "bot", bot_or_context)
@@ -62,29 +66,38 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await lock_group(context)
         await query.edit_message_text("🔒 Grup kilitlendi (buton ile)")
     elif query.data == "unlock":
-        await lock_group(context)
+        await unlock_group(context)
         await query.edit_message_text("🔓 Grup açıldı (buton ile)")
-
-# --- Scheduler Başlat ---
-async def start_scheduler(app):
-    scheduler = AsyncIOScheduler(timezone=timezone(TZ))
-    scheduler.add_job(lambda: app.create_task(lock_group(app)), CronTrigger(hour=23, minute=0))
-    scheduler.add_job(lambda: app.create_task(unlock_group(app)), CronTrigger(hour=7, minute=0))
-    scheduler.start()
-    logging.info("Scheduler started. Jobs: %s", scheduler.get_jobs())
 
 # --- /schedule_test Komutu ---
 async def schedule_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tz = timezone(TZ)
     now = datetime.now(tz)
-    scheduler = AsyncIOScheduler(timezone=tz)
-    scheduler.add_job(lambda: context.application.create_task(lock_group(context)), trigger='date', run_date=now + timedelta(seconds=30))
-    scheduler.add_job(lambda: context.application.create_task(unlock_group(context)), trigger='date', run_date=now + timedelta(seconds=60))
-    scheduler.start()
-    await update.message.reply_text("✅ Test jobları planlandı: 30 sn sonra kilit, 60 sn sonra aç.")
+
+    # Scheduler zaten global, sadece job ekliyoruz
+    scheduler.add_job(
+        lambda: context.application.create_task(lock_group(context)),
+        trigger='date',
+        run_date=now + timedelta(seconds=30)
+    )
+    scheduler.add_job(
+        lambda: context.application.create_task(unlock_group(context)),
+        trigger='date',
+        run_date=now + timedelta(seconds=60)
+    )
+
+    await update.message.reply_text(
+        "✅ Test jobları planlandı: 30 sn sonra kilit, 60 sn sonra aç."
+    )
 
 # --- BOTU OLUŞTUR ---
-app = ApplicationBuilder().token(BOT_TOKEN).post_init(start_scheduler).build()
+async def post_init(app):
+    # Cron joblar: saat 23:00 kilitle, 07:00 aç
+    scheduler.add_job(lambda: app.create_task(lock_group(app)), CronTrigger(hour=9, minute=32))
+    scheduler.add_job(lambda: app.create_task(unlock_group(app)), CronTrigger(hour=7, minute=0))
+    logging.info("Cron jobs added.")
+
+app = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
 
 # Handler ekle
 app.add_handler(CommandHandler("start", start))
