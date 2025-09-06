@@ -1,8 +1,9 @@
 import logging
 from telegram import Update, ChatPermissions
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+import os
 
 # 🔹 Buraya kendi bot tokenini yaz
 BOT_TOKEN = "8276797016:AAEaWpIzpgHTYFcI3DXuKx7RLHPbqrQe03g"
@@ -28,21 +29,15 @@ async def unlock_group(context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Bot çalışıyor! 🔥")
 
-# -------------------------------
-# Botu başlat
+# Bot oluştur
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 
-# Scheduler'ı polling başladıktan sonra başlatmak için async fonksiyon
-async def run():
-    # Scheduler
-    scheduler = AsyncIOScheduler(timezone="Europe/Istanbul")
-    scheduler.add_job(lock_group, "cron", hour=23, minute=0, args=[app.bot])
-    scheduler.add_job(unlock_group, "cron", hour=7, minute=0, args=[app.bot])
-    scheduler.start()
-    
-    await app.run_polling()
+# Scheduler
+scheduler = AsyncIOScheduler(timezone="Europe/Istanbul")
+scheduler.add_job(lock_group, "cron", hour=23, minute=0, args=[app.bot])
+scheduler.add_job(unlock_group, "cron", hour=7, minute=0, args=[app.bot])
+scheduler.start()
 
-# -------------------------------
-import asyncio
-asyncio.run(run())
+# Botu başlat (blocking, hosting uyumlu)
+app.run_polling()
