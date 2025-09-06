@@ -91,48 +91,62 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # --- Dinamik saat ayarlama ---
 LOCK_HOUR, LOCK_MINUTE, UNLOCK_HOUR, UNLOCK_MINUTE = range(4)
 
+def get_reply_target(update: Update):
+    """Callback query’den geliyorsa message objesini al, değilse update.message kullan."""
+    if update.message:
+        return update.message
+    elif update.callback_query:
+        return update.callback_query.message
+    return None
+
 async def set_time_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.callback_query.message.reply_text("Kilitleme saati için saat (0-23) girin:")
+    target = get_reply_target(update)
+    if target:
+        await target.reply_text("Kilitleme saati için saat (0-23) girin:")
     return LOCK_HOUR
 
 async def get_lock_hour(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global lock_hour
+    target = get_reply_target(update)
     try:
         lock_hour = int(update.message.text)
         if not 0 <= lock_hour <= 23:
             raise ValueError
-        await update.message.reply_text("Kilitleme dakikası (0-59) girin:")
+        await target.reply_text("Kilitleme dakikası (0-59) girin:")
         return LOCK_MINUTE
     except:
-        await update.message.reply_text("❌ 0-23 arası bir sayı girin.")
+        await target.reply_text("❌ 0-23 arası bir sayı girin.")
         return LOCK_HOUR
 
 async def get_lock_minute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global lock_minute
+    target = get_reply_target(update)
     try:
         lock_minute = int(update.message.text)
         if not 0 <= lock_minute <= 59:
             raise ValueError
-        await update.message.reply_text("Açma saati için saat (0-23) girin:")
+        await target.reply_text("Açma saati için saat (0-23) girin:")
         return UNLOCK_HOUR
     except:
-        await update.message.reply_text("❌ 0-59 arası bir sayı girin.")
+        await target.reply_text("❌ 0-59 arası bir sayı girin.")
         return LOCK_MINUTE
 
 async def get_unlock_hour(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global unlock_hour
+    target = get_reply_target(update)
     try:
         unlock_hour = int(update.message.text)
         if not 0 <= unlock_hour <= 23:
             raise ValueError
-        await update.message.reply_text("Açma dakikası (0-59) girin:")
+        await target.reply_text("Açma dakikası (0-59) girin:")
         return UNLOCK_MINUTE
     except:
-        await update.message.reply_text("❌ 0-23 arası bir sayı girin.")
+        await target.reply_text("❌ 0-23 arası bir sayı girin.")
         return UNLOCK_HOUR
 
 async def get_unlock_minute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global unlock_minute
+    target = get_reply_target(update)
     try:
         unlock_minute = int(update.message.text)
         if not 0 <= unlock_minute <= 59:
@@ -141,13 +155,14 @@ async def get_unlock_minute(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Scheduler güncelle
         await update_scheduler(context.application.bot)
 
-        await update.message.reply_text(
+        await target.reply_text(
             f"✅ Saatler ayarlandı!\nKilitleme: {lock_hour:02d}:{lock_minute:02d}\nAçma: {unlock_hour:02d}:{unlock_minute:02d}"
         )
         return ConversationHandler.END
     except:
-        await update.message.reply_text("❌ 0-59 arası bir sayı girin.")
+        await target.reply_text("❌ 0-59 arası bir sayı girin.")
         return UNLOCK_MINUTE
+
 
 # --- Buton callback ---
 @admin_only
@@ -194,4 +209,5 @@ app.add_handler(conv_handler)
 if __name__ == "__main__":
     logging.info("Bot başlatılıyor...")
     app.run_polling()
+
 
