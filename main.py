@@ -1,16 +1,12 @@
 import logging
 import os
 from pytz import timezone
-from datetime import datetime
 from telegram import Update, ChatPermissions, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     CallbackQueryHandler,
     ContextTypes,
-    ConversationHandler,
-    MessageHandler,
-    filters
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -44,7 +40,7 @@ def admin_only(func):
         await func(update, context)
     return wrapper
 
-# --- Kilitle / Aç fonksiyonları ---
+# --- Kilitle / Aç ---
 async def lock_group(bot):
     try:
         await bot.set_chat_permissions(CHAT_ID, ChatPermissions(can_send_messages=False))
@@ -88,81 +84,97 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Bot hazır! Bir işlem seçin:", reply_markup=reply_markup)
 
-# --- Dinamik saat ayarlama ---
-LOCK_HOUR, LOCK_MINUTE, UNLOCK_HOUR, UNLOCK_MINUTE = range(4)
+# --- Saat seçme fonksiyonları ---
+def build_time_keyboard(current: int, max_val: int, prefix: str):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(f"⬆️ {current}", callback_data=f"{prefix}_inc"),
+         InlineKeyboardButton(f"⬇️ {current}", callback_data=f"{prefix}_dec")],
+        [InlineKeyboardButton("✅ Onayla", callback_data=f"{prefix}_ok")]
+    ])
 
-def get_reply_target(update: Update):
-    """Callback query’den geliyorsa message objesini al, değilse update.message kullan."""
-    if update.message:
-        return update.message
-    elif update.callback_query:
-        return update.callback_query.message
-    return None
+async def time_selector(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
 
-async def set_time_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    target = get_reply_target(update)
-    if target:
-        await target.reply_text("Kilitleme saati için saat (0-23) girin:")
-    return LOCK_HOUR
-
-async def get_lock_hour(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global lock_hour
-    target = get_reply_target(update)
-    try:
-        lock_hour = int(update.message.text)
-        if not 0 <= lock_hour <= 23:
-            raise ValueError
-        await target.reply_text("Kilitleme dakikası (0-59) girin:")
-        return LOCK_MINUTE
-    except:
-        await target.reply_text("❌ 0-23 arası bir sayı girin.")
-        return LOCK_HOUR
-
-async def get_lock_minute(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global lock_minute
-    target = get_reply_target(update)
-    try:
-        lock_minute = int(update.message.text)
-        if not 0 <= lock_minute <= 59:
-            raise ValueError
-        await target.reply_text("Açma saati için saat (0-23) girin:")
-        return UNLOCK_HOUR
-    except:
-        await target.reply_text("❌ 0-59 arası bir sayı girin.")
-        return LOCK_MINUTE
-
-async def get_unlock_hour(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global unlock_hour
-    target = get_reply_target(update)
-    try:
-        unlock_hour = int(update.message.text)
-        if not 0 <= unlock_hour <= 23:
-            raise ValueError
-        await target.reply_text("Açma dakikası (0-59) girin:")
-        return UNLOCK_MINUTE
-    except:
-        await target.reply_text("❌ 0-23 arası bir sayı girin.")
-        return UNLOCK_HOUR
-
-async def get_unlock_minute(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global unlock_minute
-    target = get_reply_target(update)
-    try:
-        unlock_minute = int(update.message.text)
-        if not 0 <= unlock_minute <= 59:
-            raise ValueError
-
-        # Scheduler güncelle
-        await update_scheduler(context.application.bot)
-
-        await target.reply_text(
-            f"✅ Saatler ayarlandı!\nKilitleme: {lock_hour:02d}:{lock_minute:02d}\nAçma: {unlock_hour:02d}:{unlock_minute:02d}"
+    # Başlat
+    if query.data == "set_time":
+        await query.edit_message_text(
+            f"Kilitleme saati seç: {lock_hour:02d}",
+            reply_markup=build_time_keyboard(lock_hour, 23, "lock_hour")
         )
-        return ConversationHandler.END
-    except:
-        await target.reply_text("❌ 0-59 arası bir sayı girin.")
-        return UNLOCK_MINUTE
 
+    # LOCK HOUR
+    elif query.data.startswith("lock_hour"):
+        global lock_hour
+        if "_inc" in query.data:
+            lock_hour = (lock_hour + 1) % 24
+        elif "_dec" in query.data:
+            lock_hour = (lock_hour - 1) % 24
+        elif "_ok" in query.data:
+            await query.edit_message_text(
+                f"Kilitleme dakikasını seç: {lock_minute:02d}",
+                reply_markup=build_time_keyboard(lock_minute, 59, "lock_minute")
+            )
+            return
+        await query.edit_message_text(
+            f"Kilitleme saati seç: {lock_hour:02d}",
+            reply_markup=build_time_keyboard(lock_hour, 23, "lock_hour")
+        )
+
+    # LOCK MINUTE
+    elif query.data.startswith("lock_minute"):
+        global lock_minute
+        if "_inc" in query.data:
+            lock_minute = (lock_minute + 1) % 60
+        elif "_dec" in query.data:
+            lock_minute = (lock_minute - 1) % 60
+        elif "_ok" in query.data:
+            await query.edit_message_text(
+                f"Açma saati seç: {unlock_hour:02d}",
+                reply_markup=build_time_keyboard(unlock_hour, 23, "unlock_hour")
+            )
+            return
+        await query.edit_message_text(
+            f"Kilitleme dakikası seç: {lock_minute:02d}",
+            reply_markup=build_time_keyboard(lock_minute, 59, "lock_minute")
+        )
+
+    # UNLOCK HOUR
+    elif query.data.startswith("unlock_hour"):
+        global unlock_hour
+        if "_inc" in query.data:
+            unlock_hour = (unlock_hour + 1) % 24
+        elif "_dec" in query.data:
+            unlock_hour = (unlock_hour - 1) % 24
+        elif "_ok" in query.data:
+            await query.edit_message_text(
+                f"Açma dakikası seç: {unlock_minute:02d}",
+                reply_markup=build_time_keyboard(unlock_minute, 59, "unlock_minute")
+            )
+            return
+        await query.edit_message_text(
+            f"Açma saati seç: {unlock_hour:02d}",
+            reply_markup=build_time_keyboard(unlock_hour, 23, "unlock_hour")
+        )
+
+    # UNLOCK MINUTE
+    elif query.data.startswith("unlock_minute"):
+        global unlock_minute
+        if "_inc" in query.data:
+            unlock_minute = (unlock_minute + 1) % 60
+        elif "_dec" in query.data:
+            unlock_minute = (unlock_minute - 1) % 60
+        elif "_ok" in query.data:
+            # Scheduler güncelle
+            await update_scheduler(context.application.bot)
+            await query.edit_message_text(
+                f"✅ Saatler ayarlandı!\nKilitleme: {lock_hour:02d}:{lock_minute:02d}\nAçma: {unlock_hour:02d}:{unlock_minute:02d}"
+            )
+            return
+        await query.edit_message_text(
+            f"Açma dakikası seç: {unlock_minute:02d}",
+            reply_markup=build_time_keyboard(unlock_minute, 59, "unlock_minute")
+        )
 
 # --- Buton callback ---
 @admin_only
@@ -176,22 +188,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "unlock":
         await unlock_group(context.application.bot)
         await query.edit_message_text("🔓 Grup açıldı (buton ile)")
-    elif query.data == "set_time":
-        await query.edit_message_text("⏰ Saatleri ayarlamaya başlıyoruz...")
-        # Dinamik input için adım başlat
-        await set_time_start(update, context)
-
-# --- Conversation Handler ---
-conv_handler = ConversationHandler(
-    entry_points=[CallbackQueryHandler(button_handler, pattern="^set_time$")],
-    states={
-        LOCK_HOUR: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_lock_hour)],
-        LOCK_MINUTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_lock_minute)],
-        UNLOCK_HOUR: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_unlock_hour)],
-        UNLOCK_MINUTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_unlock_minute)],
-    },
-    fallbacks=[]
-)
+    else:
+        await time_selector(update, context)
 
 # --- Scheduler post_init ---
 async def post_init(app):
@@ -203,11 +201,9 @@ app = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
 
 # Handler ekle
 app.add_handler(CommandHandler("start", start))
-app.add_handler(conv_handler)
+app.add_handler(CallbackQueryHandler(button_handler))
 
 # --- BOTU ÇALIŞTIR ---
 if __name__ == "__main__":
     logging.info("Bot başlatılıyor...")
     app.run_polling()
-
-
