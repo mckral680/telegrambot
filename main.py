@@ -17,7 +17,7 @@ import asyncio
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = int(os.environ.get("CHAT_ID"))  # Örn: -1001234567890
 TZ = "Europe/Istanbul"
-ADMIN_USER_ID = 1141107130  # Sadece bu kullanıcı komutları çalıştırabilir
+ADMIN_USER_ID = 123456789  # Sadece bu kullanıcı komutları çalıştırabilir
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -78,17 +78,14 @@ async def schedule_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tz = timezone(TZ)
     now = datetime.now(tz)
 
-    # Asyncio-safe şekilde job ekle
-    scheduler.add_job(
-        lambda: asyncio.create_task(lock_group(context.application.bot)),
-        trigger='date',
-        run_date=now + timedelta(seconds=30)
-    )
-    scheduler.add_job(
-        lambda: asyncio.create_task(unlock_group(context.application.bot)),
-        trigger='date',
-        run_date=now + timedelta(seconds=60)
-    )
+    # Test jobları async-safe
+    async def test_lock():
+        await lock_group(context.application.bot)
+    async def test_unlock():
+        await unlock_group(context.application.bot)
+
+    scheduler.add_job(test_lock, 'date', run_date=now + timedelta(seconds=10))
+    scheduler.add_job(test_unlock, 'date', run_date=now + timedelta(seconds=40))
 
     await update.message.reply_text(
         "✅ Test jobları planlandı: 30 sn sonra kilit, 60 sn sonra aç."
@@ -113,15 +110,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- Scheduler ve Cron jobları ---
 async def post_init(app):
-    # Cron joblar: saat 23:00 kilitle, 07:00 aç
-    scheduler.add_job(
-        lambda: asyncio.create_task(lock_group(app.bot)),
-        CronTrigger(hour=23, minute=0)
-    )
-    scheduler.add_job(
-        lambda: asyncio.create_task(unlock_group(app.bot)),
-        CronTrigger(hour=7, minute=0)
-    )
+    # Cron joblar
+    async def cron_lock():
+        await lock_group(app.bot)
+    async def cron_unlock():
+        await unlock_group(app.bot)
+
+    scheduler.add_job(cron_lock, CronTrigger(hour=10, minute=12))
+    scheduler.add_job(cron_unlock, CronTrigger(hour=7, minute=0))
     scheduler.start()
     logging.info("Scheduler started and cron jobs added.")
 
