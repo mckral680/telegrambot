@@ -76,10 +76,11 @@ app.add_handler(CallbackQueryHandler(button_handler))
 
 # Scheduler (BackgroundScheduler kullanıyoruz)
 scheduler = BackgroundScheduler(timezone="Europe/Istanbul")
-scheduler.add_job(lambda: app.create_task(lock_group(app)), CronTrigger(hour=23, minute=0))
-scheduler.add_job(lambda: app.create_task(unlock_group(app)), CronTrigger(hour=7, minute=0))
+scheduler.add_job(lambda: app.create_task(lock_group(app)), CronTrigger(hour=8, minute=45))
+scheduler.add_job(lambda: app.create_task(unlock_group(app)), CronTrigger(hour=8, minute=46))
 scheduler.start()
 
 # Botu başlat (blocking)
 app.run_polling()
+
 
