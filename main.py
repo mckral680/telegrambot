@@ -21,7 +21,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 # --- GLOBAL SCHEDULER ---
 scheduler = AsyncIOScheduler(timezone=timezone(TZ))
-scheduler.start()
 
 # --- Grup Kilitle / Aç ---
 async def lock_group(bot_or_context):
@@ -90,13 +89,15 @@ async def schedule_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "✅ Test jobları planlandı: 30 sn sonra kilit, 60 sn sonra aç."
     )
 
-# --- BOTU OLUŞTUR ---
+# --- Scheduler ve Cron joblarını bot loop ile başlat ---
 async def post_init(app):
     # Cron joblar: saat 23:00 kilitle, 07:00 aç
-    scheduler.add_job(lambda: app.create_task(lock_group(app)), CronTrigger(hour=9, minute=32))
+    scheduler.add_job(lambda: app.create_task(lock_group(app)), CronTrigger(hour=23, minute=0))
     scheduler.add_job(lambda: app.create_task(unlock_group(app)), CronTrigger(hour=7, minute=0))
-    logging.info("Cron jobs added.")
+    scheduler.start()
+    logging.info("Scheduler started and cron jobs added.")
 
+# --- BOTU OLUŞTUR ---
 app = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
 
 # Handler ekle
