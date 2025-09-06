@@ -1,6 +1,5 @@
 import logging
 import os
-import asyncio
 from pytz import timezone
 from datetime import datetime, timedelta
 from telegram import Update, ChatPermissions, InlineKeyboardMarkup, InlineKeyboardButton
@@ -82,8 +81,8 @@ async def schedule_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     async def test_unlock():
         await unlock_group(context.application.bot)
 
-    scheduler.add_job(lambda: asyncio.create_task(test_lock()), 'date', run_date=now + timedelta(seconds=30))
-    scheduler.add_job(lambda: asyncio.create_task(test_unlock()), 'date', run_date=now + timedelta(seconds=60))
+    scheduler.add_job(test_lock, 'date', run_date=now + timedelta(seconds=30))
+    scheduler.add_job(test_unlock, 'date', run_date=now + timedelta(seconds=60))
 
     await update.message.reply_text("✅ Test jobları planlandı: 30 sn sonra kilit, 60 sn sonra aç.")
 
@@ -106,17 +105,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- Scheduler ve Cron jobları ---
 async def post_init(app):
-    def cron_lock_job():
-        asyncio.create_task(lock_group(app.bot))
+    # Async cron joblar
+    async def cron_lock_job():
+        await lock_group(app.bot)
         logging.info("Cron Lock çalıştı ✅")
 
-    def cron_unlock_job():
-        asyncio.create_task(unlock_group(app.bot))
+    async def cron_unlock_job():
+        await unlock_group(app.bot)
         logging.info("Cron Unlock çalıştı ✅")
 
-    # Timezone ile cron ekliyoruz
-    scheduler.add_job(cron_lock_job, CronTrigger(hour=11, minute=4, timezone=timezone(TZ)))
-    scheduler.add_job(cron_unlock_job, CronTrigger(hour=11, minute=5, timezone=timezone(TZ)))
+    scheduler.add_job(cron_lock_job, CronTrigger(hour=11, minute=10, timezone=timezone(TZ)))
+    scheduler.add_job(cron_unlock_job, CronTrigger(hour=11, minute=11, timezone=timezone(TZ)))
     scheduler.start()
     logging.info("Scheduler started and cron jobs added.")
 
@@ -133,6 +132,4 @@ app.add_handler(CallbackQueryHandler(button_handler))
 # --- BOTU ÇALIŞTIR ---
 if __name__ == "__main__":
     logging.info("Bot başlatılıyor...")
-    # Tek instance ile polling çalıştır
     app.run_polling()
-
