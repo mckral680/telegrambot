@@ -8,6 +8,8 @@ from apscheduler.triggers.cron import CronTrigger
 # Environment variable destekli
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = int(os.environ.get("CHAT_ID"))
+print("BOT_TOKEN:", os.environ.get("BOT_TOKEN"))
+print("CHAT_ID:", os.environ.get("CHAT_ID"))
 
 logging.basicConfig(level=logging.INFO)
 
@@ -40,3 +42,4 @@ scheduler.start()
 
 # Botu başlat (blocking)
 app.run_polling()
+
