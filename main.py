@@ -1,14 +1,13 @@
 import logging
+import os
 from telegram import Update, ChatPermissions
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
-import os
-
-# 🔹 Buraya kendi bot tokenini yaz
-BOT_TOKEN = "8276797016:AAEaWpIzpgHTYFcI3DXuKx7RLHPbqrQe03g"
-
-CHAT_ID = -1003034219615  
+# Environment variable destekli
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+CHAT_ID = int(os.environ.get("CHAT_ID"))
 
 logging.basicConfig(level=logging.INFO)
 
@@ -33,11 +32,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 
-# Scheduler
-scheduler = AsyncIOScheduler(timezone="Europe/Istanbul")
-scheduler.add_job(lock_group, "cron", hour=23, minute=0, args=[app.bot])
-scheduler.add_job(unlock_group, "cron", hour=7, minute=0, args=[app.bot])
+# Scheduler (BackgroundScheduler kullanıyoruz)
+scheduler = BackgroundScheduler(timezone="Europe/Istanbul")
+scheduler.add_job(lambda: app.create_task(lock_group(app)), CronTrigger(hour=23, minute=0))
+scheduler.add_job(lambda: app.create_task(unlock_group(app)), CronTrigger(hour=7, minute=0))
 scheduler.start()
 
-# Botu başlat (blocking, hosting uyumlu)
+# Botu başlat (blocking)
 app.run_polling()
