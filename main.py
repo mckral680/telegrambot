@@ -4,7 +4,7 @@ from telegram import Update, ChatPermissions, InlineKeyboardMarkup, InlineKeyboa
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-
+from pytz import timezone
 # Environment variable destekli
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = int(os.environ.get("CHAT_ID"))
@@ -82,3 +82,4 @@ scheduler.start()
 
 # Botu başlat (blocking)
 app.run_polling()
+
