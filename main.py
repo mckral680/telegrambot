@@ -66,7 +66,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await lock_group(context)
         await query.edit_message_text("🔒 Grup kilitlendi (buton ile)")
     elif query.data == "unlock":
-        await unlock_group(context)
+        await lock_group(context)
         await query.edit_message_text("🔓 Grup açıldı (buton ile)")
 
 # --- /schedule_test Komutu ---
@@ -95,11 +95,11 @@ async def post_init(app):
     # Cron joblar: saat 23:00 kilitle, 07:00 aç
     scheduler.add_job(
         lambda: asyncio.run_coroutine_threadsafe(lock_group(app), app.loop),
-        CronTrigger(hour=9, minute=47)
+        CronTrigger(hour=9, minute=52)
     )
     scheduler.add_job(
         lambda: asyncio.run_coroutine_threadsafe(unlock_group(app), app.loop),
-        CronTrigger(hour=9, minute=48)
+        CronTrigger(hour=9, minute=53)
     )
     scheduler.start()
     logging.info("Scheduler started and cron jobs added.")
