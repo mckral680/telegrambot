@@ -100,8 +100,8 @@ app.add_handler(CallbackQueryHandler(button_handler))
 # --- post_init (scheduler burada başlatılacak) ---
 async def on_startup(app):
     # Cron jobları buraya ekle
-    scheduler.add_job(scheduled_lock, CronTrigger(hour=23, minute=0))   # 23:00 kilitle
-    scheduler.add_job(scheduled_unlock, CronTrigger(hour=7, minute=0))  # 07:00 aç
+    scheduler.add_job(scheduled_lock, CronTrigger(hour=8, minute=57))   # 23:00 kilitle
+    scheduler.add_job(scheduled_unlock, CronTrigger(hour=8, minute=58))  # 07:00 aç
 
     scheduler.start()
     logging.info("Scheduler started. Jobs: %s", scheduler.get_jobs())
@@ -112,3 +112,4 @@ app = ApplicationBuilder().token(BOT_TOKEN).post_init(on_startup).build()
 if __name__ == "__main__":
     logging.info("Starting bot...")
     app.run_polling()
+
