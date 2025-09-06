@@ -92,7 +92,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 LOCK_HOUR, LOCK_MINUTE, UNLOCK_HOUR, UNLOCK_MINUTE = range(4)
 
 async def set_time_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Kilitleme saati için saat (0-23) girin:")
+    await update.callback_query.message.reply_text("Kilitleme saati için saat (0-23) girin:")
     return LOCK_HOUR
 
 async def get_lock_hour(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -194,3 +194,4 @@ app.add_handler(conv_handler)
 if __name__ == "__main__":
     logging.info("Bot başlatılıyor...")
     app.run_polling()
+
