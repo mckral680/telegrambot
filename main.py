@@ -115,8 +115,8 @@ async def post_init(app):
     async def cron_unlock():
         await unlock_group(app.bot)
 
-    scheduler.add_job(cron_lock, CronTrigger(hour=23, minute=0))
-    scheduler.add_job(cron_unlock, CronTrigger(hour=7, minute=0))
+    scheduler.add_job(cron_lock, CronTrigger(hour=10, minute=53))
+    scheduler.add_job(cron_unlock, CronTrigger(hour=10, minute=54))
     scheduler.start()
     logging.info("Scheduler started and cron jobs added.")
 
@@ -134,3 +134,4 @@ app.add_handler(CallbackQueryHandler(button_handler))
 if __name__ == "__main__":
     logging.info("Bot başlatılıyor...")
     app.run_polling()
+
