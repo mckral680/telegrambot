@@ -115,8 +115,8 @@ async def post_init(app):
         logging.info("Cron Unlock çalıştı ✅")
 
     # Timezone ile cron ekliyoruz
-    scheduler.add_job(cron_lock_job, CronTrigger(hour=10, minute=53, timezone=timezone(TZ)))
-    scheduler.add_job(cron_unlock_job, CronTrigger(hour=10, minute=54, timezone=timezone(TZ)))
+    scheduler.add_job(cron_lock_job, CronTrigger(hour=11, minute=4, timezone=timezone(TZ)))
+    scheduler.add_job(cron_unlock_job, CronTrigger(hour=11, minute=5, timezone=timezone(TZ)))
     scheduler.start()
     logging.info("Scheduler started and cron jobs added.")
 
@@ -135,3 +135,4 @@ if __name__ == "__main__":
     logging.info("Bot başlatılıyor...")
     # Tek instance ile polling çalıştır
     app.run_polling()
+
