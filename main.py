@@ -36,12 +36,13 @@ app.add_handler(CommandHandler("start", start))
 
 # Scheduler (BackgroundScheduler kullanıyoruz)
 scheduler = BackgroundScheduler(timezone="Europe/Istanbul")
-scheduler.add_job(lambda: app.create_task(lock_group(app)), CronTrigger(hour=7, minute=22))
-scheduler.add_job(lambda: app.create_task(unlock_group(app)), CronTrigger(hour=7, minute=0))
+scheduler.add_job(lambda: app.create_task(lock_group(app)), CronTrigger(hour=7, minute=27))
+scheduler.add_job(lambda: app.create_task(unlock_group(app)), CronTrigger(hour=7, minute=29))
 scheduler.start()
 
 # Botu başlat (blocking)
 app.run_polling()
+
 
 
 
