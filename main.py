@@ -17,15 +17,28 @@ import asyncio
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = int(os.environ.get("CHAT_ID"))  # Örn: -1001234567890
 TZ = "Europe/Istanbul"
+ADMIN_USER_ID = 1141107130 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # --- GLOBAL SCHEDULER ---
 scheduler = AsyncIOScheduler(timezone=timezone(TZ))
 
+# --- Admin-only decorator ---
+def admin_only(func):
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        if user_id != ADMIN_USER_ID:
+            if update.callback_query:
+                await update.callback_query.answer("❌ Sadece admin kullanabilir.", show_alert=True)
+            else:
+                await update.message.reply_text("❌ Bu komutu sadece admin kullanabilir.")
+            return
+        await func(update, context)
+    return wrapper
+
 # --- Grup Kilitle / Aç ---
-async def lock_group(bot_or_context):
-    bot = getattr(bot_or_context, "bot", bot_or_context)
+async def lock_group(bot):
     try:
         await bot.set_chat_permissions(CHAT_ID, ChatPermissions(can_send_messages=False))
         await bot.send_message(CHAT_ID, "🔒 Grup kilitlendi")
@@ -33,8 +46,7 @@ async def lock_group(bot_or_context):
     except Exception as e:
         logging.exception("Error while locking group: %s", e)
 
-async def unlock_group(bot_or_context):
-    bot = getattr(bot_or_context, "bot", bot_or_context)
+async def unlock_group(bot):
     try:
         await bot.set_chat_permissions(CHAT_ID, ChatPermissions(can_send_messages=True))
         await bot.send_message(CHAT_ID, "🔓 Grup açıldı")
@@ -51,37 +63,29 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Bot çalışıyor! 🔥", reply_markup=reply_markup)
 
+@admin_only
 async def lock_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await lock_group(context)
+    await lock_group(context.application.bot)
     await update.message.reply_text("✅ Grup kilitlendi (manuel).")
 
+@admin_only
 async def unlock_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await unlock_group(context)
+    await unlock_group(context.application.bot)
     await update.message.reply_text("✅ Grup açıldı (manuel).")
 
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    if query.data == "lock":
-        await lock_group(context)
-        await query.edit_message_text("🔒 Grup kilitlendi (buton ile)")
-    elif query.data == "unlock":
-        await lock_group(context)
-        await query.edit_message_text("🔓 Grup açıldı (buton ile)")
-
-# --- /schedule_test Komutu ---
+@admin_only
 async def schedule_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tz = timezone(TZ)
     now = datetime.now(tz)
 
     # Asyncio-safe şekilde job ekle
     scheduler.add_job(
-        lambda: asyncio.run_coroutine_threadsafe(lock_group(context.application), context.application.loop),
+        lambda: asyncio.run_coroutine_threadsafe(lock_group(context.application.bot), context.application.bot.loop),
         trigger='date',
         run_date=now + timedelta(seconds=30)
     )
     scheduler.add_job(
-        lambda: asyncio.run_coroutine_threadsafe(unlock_group(context.application), context.application.loop),
+        lambda: asyncio.run_coroutine_threadsafe(unlock_group(context.application.bot), context.application.bot.loop),
         trigger='date',
         run_date=now + timedelta(seconds=60)
     )
@@ -90,16 +94,33 @@ async def schedule_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "✅ Test jobları planlandı: 30 sn sonra kilit, 60 sn sonra aç."
     )
 
-# --- Scheduler ve Cron joblarını bot loop ile başlat ---
+# --- Buton callback ---
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    user_id = query.from_user.id
+    if user_id != ADMIN_USER_ID:
+        await query.answer("❌ Sadece admin kullanabilir.", show_alert=True)
+        return
+
+    if query.data == "lock":
+        await lock_group(context.application.bot)
+        await query.edit_message_text("🔒 Grup kilitlendi (buton ile)")
+    elif query.data == "unlock":
+        await unlock_group(context.application.bot)
+        await query.edit_message_text("🔓 Grup açıldı (buton ile)")
+
+# --- Scheduler ve Cron jobları ---
 async def post_init(app):
     # Cron joblar: saat 23:00 kilitle, 07:00 aç
     scheduler.add_job(
-        lambda: asyncio.run_coroutine_threadsafe(lock_group(app), app.loop),
-        CronTrigger(hour=9, minute=52)
+        lambda: asyncio.run_coroutine_threadsafe(lock_group(app.bot), app.bot.loop),
+        CronTrigger(hour=23, minute=0)
     )
     scheduler.add_job(
-        lambda: asyncio.run_coroutine_threadsafe(unlock_group(app), app.loop),
-        CronTrigger(hour=9, minute=53)
+        lambda: asyncio.run_coroutine_threadsafe(unlock_group(app.bot), app.bot.loop),
+        CronTrigger(hour=7, minute=0)
     )
     scheduler.start()
     logging.info("Scheduler started and cron jobs added.")
