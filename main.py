@@ -93,18 +93,19 @@ def build_time_keyboard(current: int, max_val: int, prefix: str):
     ])
 
 async def time_selector(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global lock_hour, lock_minute, unlock_hour, unlock_minute  # ← buraya en başa koy
+    global lock_hour, lock_minute, unlock_hour, unlock_minute  # ← burada tüm global değişkenleri başta bildiriyoruz
+
     query = update.callback_query
     await query.answer()
 
-    # Başlat
+    # Başlat: Saatleri ayarlama süreci
     if query.data == "set_time":
         await query.edit_message_text(
             f"Kilitleme saati seç: {lock_hour:02d}",
             reply_markup=build_time_keyboard(lock_hour, 23, "lock_hour")
         )
 
-    # LOCK HOUR
+    # --- LOCK HOUR ---
     elif query.data.startswith("lock_hour"):
         if "_inc" in query.data:
             lock_hour = (lock_hour + 1) % 24
@@ -120,9 +121,9 @@ async def time_selector(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Kilitleme saati seç: {lock_hour:02d}",
             reply_markup=build_time_keyboard(lock_hour, 23, "lock_hour")
         )
-      # LOCK MINUTE
+
+    # --- LOCK MINUTE ---
     elif query.data.startswith("lock_minute"):
-        global lock_minute
         if "_inc" in query.data:
             lock_minute = (lock_minute + 1) % 60
         elif "_dec" in query.data:
@@ -138,9 +139,8 @@ async def time_selector(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=build_time_keyboard(lock_minute, 59, "lock_minute")
         )
 
-    # UNLOCK HOUR
+    # --- UNLOCK HOUR ---
     elif query.data.startswith("unlock_hour"):
-        global unlock_hour
         if "_inc" in query.data:
             unlock_hour = (unlock_hour + 1) % 24
         elif "_dec" in query.data:
@@ -156,9 +156,8 @@ async def time_selector(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=build_time_keyboard(unlock_hour, 23, "unlock_hour")
         )
 
-    # UNLOCK MINUTE
+    # --- UNLOCK MINUTE ---
     elif query.data.startswith("unlock_minute"):
-        global unlock_minute
         if "_inc" in query.data:
             unlock_minute = (unlock_minute + 1) % 60
         elif "_dec" in query.data:
@@ -174,6 +173,7 @@ async def time_selector(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Açma dakikası seç: {unlock_minute:02d}",
             reply_markup=build_time_keyboard(unlock_minute, 59, "unlock_minute")
         )
+
 
 # --- Buton callback ---
 @admin_only
@@ -206,4 +206,5 @@ app.add_handler(CallbackQueryHandler(button_handler))
 if __name__ == "__main__":
     logging.info("Bot başlatılıyor...")
     app.run_polling()
+
 
