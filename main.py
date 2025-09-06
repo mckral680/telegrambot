@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from telegram import Update, ChatPermissions
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -29,10 +30,9 @@ async def unlock_group(context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Bot çalışıyor! 🔥")
 
-def main():
+async def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # /start komutu
     app.add_handler(CommandHandler("start", start))
 
     # Zamanlayıcı
@@ -41,7 +41,9 @@ def main():
     scheduler.add_job(unlock_group, "cron", hour=7, minute=0, args=[app.bot])
     scheduler.start()
 
-    app.run_polling()
+    # Botu başlat
+    await app.run_polling()
 
+# Asyncio ile çalıştır
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
