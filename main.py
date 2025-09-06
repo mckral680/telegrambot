@@ -11,6 +11,7 @@ from telegram.ext import (
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+import asyncio
 
 # --- CONFIG ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -73,14 +74,14 @@ async def schedule_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tz = timezone(TZ)
     now = datetime.now(tz)
 
-    # Scheduler zaten global, sadece job ekliyoruz
+    # Asyncio-safe şekilde job ekle
     scheduler.add_job(
-        lambda: context.application.create_task(lock_group(context.application)),
+        lambda: asyncio.run_coroutine_threadsafe(lock_group(context.application), context.application.loop),
         trigger='date',
         run_date=now + timedelta(seconds=30)
     )
     scheduler.add_job(
-        lambda: context.application.create_task(unlock_group(context.application)),
+        lambda: asyncio.run_coroutine_threadsafe(unlock_group(context.application), context.application.loop),
         trigger='date',
         run_date=now + timedelta(seconds=60)
     )
@@ -92,8 +93,14 @@ async def schedule_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # --- Scheduler ve Cron joblarını bot loop ile başlat ---
 async def post_init(app):
     # Cron joblar: saat 23:00 kilitle, 07:00 aç
-    scheduler.add_job(lambda: app.create_task(lock_group(app)), CronTrigger(hour=23, minute=0))
-    scheduler.add_job(lambda: app.create_task(unlock_group(app)), CronTrigger(hour=7, minute=0))
+    scheduler.add_job(
+        lambda: asyncio.run_coroutine_threadsafe(lock_group(app), app.loop),
+        CronTrigger(hour=9, minute=47)
+    )
+    scheduler.add_job(
+        lambda: asyncio.run_coroutine_threadsafe(unlock_group(app), app.loop),
+        CronTrigger(hour=9, minute=48)
+    )
     scheduler.start()
     logging.info("Scheduler started and cron jobs added.")
 
