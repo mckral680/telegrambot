@@ -11,13 +11,12 @@ from telegram.ext import (
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-import asyncio
 
 # --- CONFIG ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = int(os.environ.get("CHAT_ID"))  # Örn: -1001234567890
 TZ = "Europe/Istanbul"
-ADMIN_USER_ID = 123456789  # Sadece bu kullanıcı komutları çalıştırabilir
+ADMIN_USER_ID = int(os.environ.get("ADMIN_USER_ID"))  # Sadece admin kullanabilir
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -84,8 +83,8 @@ async def schedule_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     async def test_unlock():
         await unlock_group(context.application.bot)
 
-    scheduler.add_job(test_lock, 'date', run_date=now + timedelta(seconds=10))
-    scheduler.add_job(test_unlock, 'date', run_date=now + timedelta(seconds=40))
+    scheduler.add_job(test_lock, 'date', run_date=now + timedelta(seconds=30))
+    scheduler.add_job(test_unlock, 'date', run_date=now + timedelta(seconds=60))
 
     await update.message.reply_text(
         "✅ Test jobları planlandı: 30 sn sonra kilit, 60 sn sonra aç."
@@ -116,7 +115,7 @@ async def post_init(app):
     async def cron_unlock():
         await unlock_group(app.bot)
 
-    scheduler.add_job(cron_lock, CronTrigger(hour=10, minute=12))
+    scheduler.add_job(cron_lock, CronTrigger(hour=23, minute=0))
     scheduler.add_job(cron_unlock, CronTrigger(hour=7, minute=0))
     scheduler.start()
     logging.info("Scheduler started and cron jobs added.")
