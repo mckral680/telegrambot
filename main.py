@@ -75,12 +75,12 @@ async def schedule_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Scheduler zaten global, sadece job ekliyoruz
     scheduler.add_job(
-        lambda: context.application.create_task(lock_group(context)),
+        lambda: context.application.create_task(lock_group(context.application)),
         trigger='date',
         run_date=now + timedelta(seconds=30)
     )
     scheduler.add_job(
-        lambda: context.application.create_task(unlock_group(context)),
+        lambda: context.application.create_task(unlock_group(context.application)),
         trigger='date',
         run_date=now + timedelta(seconds=60)
     )
