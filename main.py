@@ -93,6 +93,7 @@ def build_time_keyboard(current: int, max_val: int, prefix: str):
     ])
 
 async def time_selector(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global lock_hour, lock_minute, unlock_hour, unlock_minute  # ← buraya en başa koy
     query = update.callback_query
     await query.answer()
 
@@ -105,7 +106,6 @@ async def time_selector(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # LOCK HOUR
     elif query.data.startswith("lock_hour"):
-        global lock_hour
         if "_inc" in query.data:
             lock_hour = (lock_hour + 1) % 24
         elif "_dec" in query.data:
@@ -120,8 +120,7 @@ async def time_selector(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Kilitleme saati seç: {lock_hour:02d}",
             reply_markup=build_time_keyboard(lock_hour, 23, "lock_hour")
         )
-
-    # LOCK MINUTE
+      # LOCK MINUTE
     elif query.data.startswith("lock_minute"):
         global lock_minute
         if "_inc" in query.data:
@@ -207,3 +206,4 @@ app.add_handler(CallbackQueryHandler(button_handler))
 if __name__ == "__main__":
     logging.info("Bot başlatılıyor...")
     app.run_polling()
+
